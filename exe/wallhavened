@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+require 'optparse'
+require 'thor'
+require_relative '../lib/wallhavened'
+
+class Wallhavaned < Thor
+  package_name "wallhavened"
+
+  desc "scrape_all USERNAME API PATH", "Scrape all collections"
+  method_options :username => :string, :api_key => :string, :path  => :string
+  def scrape_all_collections(username, api_key, path)
+    driver = WallhavenAuth.new(username, api_key)
+    res = driver.scrape_user_collections
+    puts res
+  end
+end
+
+Wallhavaned.start(ARGV)
