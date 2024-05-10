@@ -2,29 +2,28 @@ require "open-uri"
 require "nokogiri"
 require "json"
 
+class RequestSender
+  def get_json(url)
+    begin
+      json = JSON.parse(URI.parse(url).open.read)
+    rescue OpenURI::HTTPError => e
+      raise e unless e.to_s.include?("429")
+      puts("Delaying for 10s")
+      sleep(10)
+      retry
+    end
+    json
+  end
+end
+
 class Wallhaven
   SITE_URL = "https://wallhaven.cc".freeze
   SITE_API = "#{SITE_URL}/api/v1".freeze
+
+  def initialize
+    @request_sender = RequestSender.new
+  end
 end
-
-  # def download_collection(collection_id)
-  #   url = "#{SITE_API}/collections/#{}"
-  #   doc =
-  # end
-
-  # def download_collection(collection)
-  #   url = "#{SITE_URL}/user/#{@user}/favorites/#{collection}"
-  #   doc = Nokogiri::HTML(URI.open(url))
-
-  #   urls = []
-  #   doc.css('.preview').map {|t| t['href']}.each do |url|
-  #     urls << WallhavenWallpaper.new(url)
-  #   end
-
-  #   return urls
-  # end
-
-
 
 class WallhavenAuth < Wallhaven
   def initialize(username, api_key)
@@ -33,51 +32,39 @@ class WallhavenAuth < Wallhaven
     super()
   end
 
-  def get_user_collections
+  def scrape_user_collections
+    user_collections_ids.flat_map { |collection| scrape_collection(collection) }
+  end
+
+  def user_collections_ids
     url = "#{SITE_API}/collections?apikey=#{@api_key}"
-    JSON.parse(URI.parse(url).open.read)["data"]
+    ids = []
+    @request_sender.get_json(url)["data"].each do |collection|
+      ids << collection["id"]
+    end
+    ids
   end
 
   def scrape_collection(id)
-    url = "#{SITE_API}/collections/#{@username}/#{id}?page="
-
-    page = 1
+    max_page = collection_pages_count(id)
     walls = []
-    loop do
-      begin
-        json = JSON.parse(URI.parse(url + page.to_s).open.read)
-      rescue OpenURI::HTTPError => e
-        raise e unless e.to_s.include?("429")
-
-        puts("Delaying for 10s")
-        sleep(10)
-        retry
-      end
-
-      max_page ||= json["meta"]["last_page"]
-
-      json["data"].each do |wallpaper|
-        walls << WallhavenWallpaper.new(wallpaper["path"])
-      end
-
-      break if page == max_page
-
-      page += 1
+    (1..max_page).each do |page|
+      walls += scrape_collection_page(id, page)
       sleep 1.4
     end
-
     walls
   end
 
-  def scrape_user_collections
-    collections = get_user_collections
-    walls = []
-    collections.each do |collection|
-      id = collection["id"]
-      puts id
-      walls.push(*scrape_collection(id))
-    end
-    walls
+  def collection_pages_count(id)
+    url = "#{SITE_API}/collections/#{@username}/#{id}?page=1"
+    json = @request_sender.get_json(url)
+    json["meta"]["last_page"]
+  end
+
+  def scrape_collection_page(id, page)
+    url = "#{SITE_API}/collections/#{@username}/#{id}?page=#{page}"
+    json = @request_sender.get_json(url)
+    json["data"].map { |wallpaper| WallhavenWallpaper.new(wallpaper["path"], wallpaper["id"]) }
   end
 end
 
@@ -85,11 +72,17 @@ class WallhavenWallpaper
   SITE_URL = "https://wallhaven.cc".freeze
   attr_reader :url
 
-  def initialize(url)
-    @url = url
+  def initialize(img_url, id)
+    @img_url = img_url
+    @id = id
+    @filename = img_url.split("/")[-1]
+    puts @filename
   end
 
   def download(path)
-    
+    output_path = "#{path}/#{@filename}"
+    URI.parse(@img_url).open do |image|
+      File.binwrite(output_path, image.read)
+    end
   end
 end
