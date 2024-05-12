@@ -1,3 +1,5 @@
+require_relative "wallhaven_wallpaper"
+
 require "open-uri"
 require "nokogiri"
 require "json"
@@ -25,6 +27,15 @@ class Wallhaven
   end
 end
 
+class Collection
+  attr_reader :id, :label
+
+  def initialize(id, label)
+    @id = id
+    @label = label
+  end
+end
+
 class WallhavenAuth < Wallhaven
   def initialize(username, api_key)
     @username = username
@@ -32,17 +43,19 @@ class WallhavenAuth < Wallhaven
     super()
   end
 
-  def scrape_user_collections
-    user_collections_ids.flat_map { |collection| scrape_collection(collection) }
+  def scrape_all_user_collections
+    user_collections.flat_map { |collection| scrape_collection(collection.id) }
   end
 
-  def user_collections_ids
+  def user_collections
     url = "#{SITE_API}/collections?apikey=#{@api_key}"
-    ids = []
+    collections = []
     @request_sender.get_json(url)["data"].each do |collection|
-      ids << collection["id"]
+      collection = Collection.new(collection["id"], collection["label"])
+      yield collection if block_given?
+      collections << collection
     end
-    ids
+    collections
   end
 
   def scrape_collection(id)
@@ -65,24 +78,5 @@ class WallhavenAuth < Wallhaven
     url = "#{SITE_API}/collections/#{@username}/#{id}?page=#{page}"
     json = @request_sender.get_json(url)
     json["data"].map { |wallpaper| WallhavenWallpaper.new(wallpaper["path"], wallpaper["id"]) }
-  end
-end
-
-class WallhavenWallpaper
-  SITE_URL = "https://wallhaven.cc".freeze
-  attr_reader :url
-
-  def initialize(img_url, id)
-    @img_url = img_url
-    @id = id
-    @filename = img_url.split("/")[-1]
-    puts @filename
-  end
-
-  def download(path)
-    output_path = "#{path}/#{@filename}"
-    URI.parse(@img_url).open do |image|
-      File.binwrite(output_path, image.read)
-    end
   end
 end

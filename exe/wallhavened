@@ -1,18 +1,54 @@
 #!/usr/bin/env ruby
-require "optparse"
-require "thor"
+require "bundler/setup"
+
 require_relative "../lib/wallhavened"
 
-class Wallhavaned < Thor
+require "thor"
+require "cli/ui"
+
+class App < Thor
   package_name "wallhavened"
 
-  desc "scrape_all USERNAME API PATH", "Scrape all collections"
-  method_options username: :string, api_key: :string, path: :string
-  def scrape_all_collections(username, api_key, path)
+  def self.exit_on_failure?
+    true
+  end
+
+  desc "download_all_collections USERNAME API_KEY DIRECTORY", "Download wallpapers from all user collections"
+  method_options username: :string, api_key: :string, directory: :string
+  def download_all_collections(username, api_key, directory)
     driver = WallhavenAuth.new(username, api_key)
-    res = driver.scrape_user_collections
-    puts res
+
+    CLI::UI::Spinner.spin("Collecting collection data...") do |spinner|
+      walls = driver.scrape_all_user_collections
+      walls.each_with_index do |wall, i|
+        spinner.update_title("Downloading wallpapers... [#{i + 1}/#{walls.count}]")
+        wall.download(directory)
+      end
+    end
+    puts "Wallpapers available in #{directory}"
+  end
+
+  desc "download_collection USERNAME API_KEY DIRECTORY", "Download wallpapers from a user collection"
+  method_options username: :string, api_key: :string, directory: :string
+  def download_collection(username, api_key, directory)
+    driver = WallhavenAuth.new(username, api_key)
+
+    collection = CLI::UI::Prompt.ask("Which collection to download?") do |handler|
+      driver.user_collections do |collection|
+        handler.option(collection.label) { collection }
+      end
+    end
+
+    CLI::UI::Spinner.spin("Collecting collection data...") do |spinner|
+      walls = driver.scrape_collection(collection.id)
+      walls.each_with_index do |wall, i|
+        spinner.update_title("Downloading wallpapers... [#{i + 1}/#{walls.count}]")
+        wall.download(directory)
+      end
+    end
+    puts "Wallpapers available in #{directory}"
   end
 end
 
-Wallhavaned.start(ARGV)
+CLI::UI::StdoutRouter.enable
+App.start

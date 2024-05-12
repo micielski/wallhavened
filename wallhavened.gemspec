@@ -9,7 +9,6 @@ Gem::Specification.new do |spec|
   spec.email = ["rmicielski@purelymail.com"]
   spec.summary = "Scrapes wallhaven"
 
-  # spec.summary = "TODO: Write a short summary, because RubyGems requires one."
   # spec.description = "TODO: Write a longer description or delete this line."
   # spec.homepage = "TODO: Put your gem's website or public repo "
   spec.required_ruby_version = ">= 2.6.0"
@@ -38,7 +37,9 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "minitest", "~> 5.16"
   spec.add_runtime_dependency "open-uri"
   spec.add_runtime_dependency "nokogiri"
-  spec.add_runtime_dependency "standard"
+  spec.add_runtime_dependency "rdoc"
+  spec.add_runtime_dependency "thor"
+  spec.add_runtime_dependency "cli-ui"
 
   # For more information and examples about making a new gem, check out our
   # guide at: https://bundler.io/guides/creating_gem.html
