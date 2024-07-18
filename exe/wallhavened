@@ -1,10 +1,22 @@
 #!/usr/bin/env ruby
-require "bundler/setup"
 
-require_relative "../lib/wallhavened"
-
+require "wallhavened"
 require "thor"
 require "cli/ui"
+require "fileutils"
+
+module Utils
+  def self.prepare_directory(directory)
+    FileUtils.mkdir_p(directory) unless File.exist?(directory)
+  end
+
+  def self.download_walls(walls, directory, spinner)
+    walls.each_with_index do |wall, i|
+      spinner.update_title("Downloading wallpapers.. [#{i + 1}/#{walls.count}]")
+      wall.download(directory)
+    end
+  end
+end
 
 class App < Thor
   package_name "wallhavened"
@@ -16,37 +28,52 @@ class App < Thor
   desc "download_all_collections USERNAME API_KEY DIRECTORY", "Download wallpapers from all user collections"
   method_options username: :string, api_key: :string, directory: :string
   def download_all_collections(username, api_key, directory)
-    driver = WallhavenAuth.new(username, api_key)
-
-    CLI::UI::Spinner.spin("Collecting collection data...") do |spinner|
-      walls = driver.scrape_all_user_collections
-      walls.each_with_index do |wall, i|
-        spinner.update_title("Downloading wallpapers... [#{i + 1}/#{walls.count}]")
-        wall.download(directory)
-      end
-    end
-    puts "Wallpapers available in #{directory}"
+    download_collections(:all, username, api_key, directory)
   end
 
   desc "download_collection USERNAME API_KEY DIRECTORY", "Download wallpapers from a user collection"
   method_options username: :string, api_key: :string, directory: :string
   def download_collection(username, api_key, directory)
+    download_collections(:single, username, api_key, directory)
+  end
+
+  private
+
+  def download_collections(type, username, api_key, directory)
+    Utils.prepare_directory(directory)
     driver = WallhavenAuth.new(username, api_key)
 
-    collection = CLI::UI::Prompt.ask("Which collection to download?") do |handler|
-      driver.user_collections do |collection|
-        handler.option(collection.label) { collection }
-      end
+    case type
+    when :all
+      download_all(driver, directory)
+    when :single
+      collection = prompt_for_collection(driver)
+      download_single(driver, collection.id, directory)
     end
 
+    puts "Wallpapers available in #{directory}"
+  end
+
+  def download_all(driver, directory)
     CLI::UI::Spinner.spin("Collecting collection data...") do |spinner|
-      walls = driver.scrape_collection(collection.id)
-      walls.each_with_index do |wall, i|
-        spinner.update_title("Downloading wallpapers... [#{i + 1}/#{walls.count}]")
-        wall.download(directory)
+      walls = driver.scrape_all_user_collections
+      Utils.download_walls(walls, directory, spinner)
+    end
+  end
+
+  def download_single(driver, collection_id, directory)
+    CLI::UI::Spinner.spin("Collecting collection data...") do |spinner|
+      walls = driver.scrape_collection(collection_id)
+      Utils.download_walls(walls, directory, spinner)
+    end
+  end
+
+  def prompt_for_collection(driver)
+    CLI::UI::Prompt.ask("Which collection to download?") do |handler|
+      driver.user_collections do |user_collection|
+        handler.option(user_collection.label) { user_collection }
       end
     end
-    puts "Wallpapers available in #{directory}"
   end
 end
 
