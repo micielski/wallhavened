@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require "wallhavened"
+require_relative "../lib/wallhavened"
 require "thor"
 require "cli/ui"
 require "fileutils"
@@ -41,36 +41,36 @@ class App < Thor
 
   def download_collections(type, username, api_key, directory)
     Utils.prepare_directory(directory)
-    driver = WallhavenAuth.new(username, api_key)
+    client = Wallhavened::AuthClient.new(username, api_key)
 
     case type
     when :all
-      download_all(driver, directory)
+      download_all(client, directory)
     when :single
-      collection = prompt_for_collection(driver)
-      download_single(driver, collection.id, directory)
+      collection = prompt_for_collection(client)
+      download_single(client, collection.id, directory)
     end
 
     puts "Wallpapers available in #{directory}"
   end
 
-  def download_all(driver, directory)
+  def download_all(client, directory)
     CLI::UI::Spinner.spin("Collecting collection data...") do |spinner|
-      walls = driver.scrape_all_user_collections
+      walls = client.scrape_all_user_collections
       Utils.download_walls(walls, directory, spinner)
     end
   end
 
-  def download_single(driver, collection_id, directory)
+  def download_single(client, collection_id, directory)
     CLI::UI::Spinner.spin("Collecting collection data...") do |spinner|
-      walls = driver.scrape_collection(collection_id)
+      walls = client.scrape_collection(collection_id)
       Utils.download_walls(walls, directory, spinner)
     end
   end
 
-  def prompt_for_collection(driver)
+  def prompt_for_collection(client)
     CLI::UI::Prompt.ask("Which collection to download?") do |handler|
-      driver.user_collections do |user_collection|
+      client.user_collections do |user_collection|
         handler.option(user_collection.label) { user_collection }
       end
     end

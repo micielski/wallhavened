@@ -1,9 +1,10 @@
-# frozen_string_literal: true
-
+# Constants
 require_relative "wallhavened/version"
-require_relative "wallhavened/wallhaven"
+require_relative "wallhavened/urls"
 
-module Wallhavened
-  class Error < StandardError; end
-  # Your code goes here...
-end
+# Clients
+require_relative "wallhavened/client"
+require_relative "wallhavened/auth_client"
+
+# Types
+require_relative "wallhavened/wallpaper"
