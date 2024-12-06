@@ -1,6 +1,6 @@
 module Wallhavened
   class Wallpaper
-    attr_reader :url
+    attr_reader :img_url, :filename
 
     def initialize(img_url, id)
       @img_url = img_url

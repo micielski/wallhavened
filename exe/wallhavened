@@ -11,9 +11,12 @@ module Utils
   end
 
   def self.download_walls(walls, directory, spinner)
+    
     walls.each_with_index do |wall, i|
       spinner.update_title("Downloading wallpapers.. [#{i + 1}/#{walls.count}]")
-      wall.download(directory)
+      if !File.exist?("#{directory}/#{wall.filename}")
+        wall.download(directory)
+      end
     end
   end
 end
