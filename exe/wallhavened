@@ -10,8 +10,7 @@ module Utils
     FileUtils.mkdir_p(directory) unless File.exist?(directory)
   end
 
-  def self.download_walls(walls, directory, spinner)
-    
+  def self.download_walls(walls, directory, spinner)    
     walls.each_with_index do |wall, i|
       spinner.update_title("Downloading wallpapers.. [#{i + 1}/#{walls.count}]")
       if !File.exist?("#{directory}/#{wall.filename}")
